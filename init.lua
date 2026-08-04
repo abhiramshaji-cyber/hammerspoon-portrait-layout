@@ -67,24 +67,34 @@ local function place(win, rect)
   return false
 end
 
--- Native fullscreen always follows the window's current screen, so move it there before entering.
-local function fullscreenOn(win, screen, tries)
+-- Native fullscreen gets its own Space and vanishes whenever that Space is not showing, and no
+-- hotkey can pull a Space forward, so fill the screen in the normal Space instead.
+local function fillScreen(win, screen, tries)
   if win:isFullScreen() then
-    if win:screen():getUUID() == screen:getUUID() then
-      return
-    end
     if (tries or 0) >= 3 then
-      hs.alert.show(FULLSCREEN_APP .. ": could not leave fullscreen")
+      hs.alert.show(FULLSCREEN_APP .. ": stuck in fullscreen, exit it manually")
       return
     end
     win:setFullScreen(false)
     hs.timer.doAfter(1, function()
-      fullscreenOn(win, screen, (tries or 0) + 1)
+      fillScreen(win, screen, (tries or 0) + 1)
     end)
     return
   end
   place(win, screen:frame())
-  win:setFullScreen(true)
+  win:raise()
+end
+
+local function isLayoutApp(name)
+  if name == FULLSCREEN_APP then
+    return true
+  end
+  for _, n in ipairs(STACK) do
+    if n == name then
+      return true
+    end
+  end
+  return false
 end
 
 local function applyLayout()
@@ -97,10 +107,12 @@ local function applyLayout()
   local slots = slice(stackScreen:frame(), #STACK)
   local skipped = {}
 
+  local firstPlaced
   for i, name in ipairs(STACK) do
     local win = windowFor(name)
     if win and place(win, slots[i]) then
       win:raise()
+      firstPlaced = firstPlaced or win
     else
       table.insert(skipped, name)
     end
@@ -110,9 +122,15 @@ local function applyLayout()
   if not otherScreen then
     table.insert(skipped, FULLSCREEN_APP .. " (needs a 2nd display)")
   elseif fs then
-    fullscreenOn(fs, otherScreen)
+    fillScreen(fs, otherScreen)
   else
     table.insert(skipped, FULLSCREEN_APP)
+  end
+
+  -- macOS keeps the focused app's windows above raised ones, so an unlisted app would stay on top.
+  local front = hs.application.frontmostApplication()
+  if firstPlaced and not (front and isLayoutApp(front:name())) then
+    firstPlaced:focus()
   end
 
   if #skipped > 0 then
@@ -124,7 +142,8 @@ end
 
 hs.hotkey.bind(HOTKEY[1], HOTKEY[2], applyLayout)
 
-hs.pathwatcher.new(hs.configdir, function(files)
+-- Global on purpose: an unretained pathwatcher is garbage collected and silently stops watching.
+configWatcher = hs.pathwatcher.new(hs.configdir, function(files)
   for _, f in ipairs(files) do
     if f:sub(-4) == ".lua" then
       hs.reload()

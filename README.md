@@ -3,7 +3,7 @@
 One hotkey restores a two-monitor portrait layout:
 
 - Secondary portrait display: Chrome, Spotify, Slack stacked as exact vertical thirds.
-- Primary (menu bar) display: Ghostty in native fullscreen.
+- Primary (menu bar) display: Ghostty filling the whole screen.
 
 Hotkey: `control` + `option` + `command` + `L`
 
@@ -56,9 +56,16 @@ Specific cases it handles:
   `allWindows()` and unminimized before placement.
 - `setFrame` gets dropped mid-animation or right after unminimize, so each placement is
   verified and retried.
-- Native fullscreen ignores `setFrame` and follows the window's own screen. If the fullscreen
-  app is on the wrong display it is taken out of fullscreen, moved, then put back, with a
-  retry cap so a refused transition cannot loop.
+- Native fullscreen is deliberately not used. A natively fullscreen window gets its own Space
+  and disappears whenever that Space is not the one on screen, and no hotkey can pull a Space
+  forward. Ghostty is filled to the screen frame in the normal Space instead, so it is always
+  visible. If it is found in native fullscreen it is taken out first, with a retry cap so a
+  refused transition cannot loop.
+- macOS keeps the focused app's windows above raised ones, so an unlisted app you were using
+  would sit on top of the freshly placed layout. If the frontmost app is not part of the
+  layout, focus moves into the layout. If you are already in a layout app, focus is left alone.
+- The config pathwatcher is stored in a global. An unretained watcher is garbage collected and
+  silently stops, which makes edits appear to have no effect.
 - A missing app or a single connected display is reported in an alert rather than crashing
   or half applying the layout.
 
@@ -68,5 +75,8 @@ Driven on a two by 1440x2560 portrait setup:
 
 - Windows piled on top of each other, restored to exact contiguous thirds (30+843, 873+844, 1717+843 = 2560).
 - Spotify minimized, then restored into its slot.
-- Ghostty fullscreen on the wrong display, then returned to fullscreen on the right one.
-- Ghostty already correct: left alone, its Space untouched.
+- Ghostty stuck in native fullscreen on its own Space, brought back to the shared Space and
+  filled to the screen, confirmed via `hs.spaces.windowSpaces`.
+- An unlisted focused app (Delivery) parked over the stack: left where it was, dropped below
+  all three stack windows in z-order.
+- Editing this file auto-reloads, confirmed by watching a global marker get cleared.
