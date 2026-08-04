@@ -5,7 +5,10 @@ One hotkey restores a two-monitor portrait layout:
 - Secondary portrait display: Chrome, Spotify, Slack stacked as exact vertical thirds.
 - Primary (menu bar) display: Ghostty in native fullscreen.
 
-Hotkey: `ctrl` + `alt` + `cmd` + `L`
+Hotkey: `control` + `option` + `command` + `L`
+
+Hammerspoon's `"alt"` and `"option"` are the same modifier. The config says `option`
+because that is what the key is labelled on an Apple keyboard.
 
 ## Install
 
@@ -17,6 +20,15 @@ open -a Hammerspoon
 
 Then grant Hammerspoon access under System Settings > Privacy & Security > Accessibility.
 Without it, window frames silently do nothing, so the hotkey shows an alert instead.
+
+Start at login, so the hotkey works from boot:
+
+```sh
+hs -c 'hs.autoLaunch(true)'
+```
+
+A Homebrew cask install does not register a login item on its own. Verify with
+`hs -c 'return hs.autoLaunch()'`, or under System Settings > General > Login Items.
 
 ## Configuration
 

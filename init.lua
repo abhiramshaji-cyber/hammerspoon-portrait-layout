@@ -1,6 +1,6 @@
 -- Vertical app stack on one portrait display + Ghostty fullscreen on the other, on one hotkey.
 
-local HOTKEY = { { "ctrl", "alt", "cmd" }, "l" }
+local HOTKEY = { { "ctrl", "option", "cmd" }, "l" } -- option is the same modifier Hammerspoon calls "alt"
 local STACK = { "Google Chrome", "Spotify", "Slack" } -- top to bottom
 local FULLSCREEN_APP = "Ghostty"
 local STACK_ON = "secondary" -- "primary" is the menu-bar display, which here is Ghostty's
