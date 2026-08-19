@@ -99,3 +99,11 @@ Driven on a two by 1440x2560 portrait setup:
 - An unlisted focused app (Delivery) parked over the stack: left where it was, dropped below
   all three stack windows in z-order.
 - Editing this file auto-reloads, confirmed by watching a global marker get cleared.
+
+## Contributing
+
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).
