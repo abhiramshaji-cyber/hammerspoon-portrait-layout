@@ -3,8 +3,8 @@
 local HOTKEY = { { "ctrl", "option", "cmd" }, "l" } -- option is the same modifier Hammerspoon calls "alt"
 local STACK = {
   { "Google Chrome" },
-  { "Google Chrome", "Spotify" },
-  { "Slack", "Google Chrome" },
+  { "Architect" },
+  { "Slack", "Spotify" },
 }
 local FULLSCREEN_APP = "Ghostty"
 local STACK_ON = "secondary" -- "primary" is the menu-bar display, which here is Ghostty's
