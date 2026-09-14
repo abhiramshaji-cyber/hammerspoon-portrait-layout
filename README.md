@@ -109,3 +109,11 @@ Driven on a two by 1440x2560 portrait setup:
   filled. Frames read back as 1692,30 1692x993 across the top, then 1692,1023 846x992 and
   2538,1023 846x992 sharing the middle, then 1692,2015 846x993 and 2538,2015 846x993 sharing the
   bottom: exact halves, no gap, no overlap.
+
+## Contributing
+
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).
