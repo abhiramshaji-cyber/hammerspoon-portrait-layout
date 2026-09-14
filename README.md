@@ -2,7 +2,9 @@
 
 One hotkey restores a two-monitor portrait layout:
 
-- Secondary portrait display: Chrome, Spotify, Slack stacked as exact vertical thirds.
+- Secondary portrait display: three equal rows. A row holding several apps splits into equal
+  columns, so the default is Chrome across the top, Chrome and Spotify sharing the middle, and
+  Slack and Chrome sharing the bottom.
 - Primary (menu bar) display: Ghostty filling the whole screen.
 
 Any app that is closed gets launched, and any app sitting in native fullscreen gets pulled
@@ -40,7 +42,7 @@ Everything tunable is in the first five lines of `init.lua`:
 | Setting | Meaning |
 | --- | --- |
 | `HOTKEY` | Modifier list and key. |
-| `STACK` | Apps top to bottom. The stack splits evenly by list length, so a fourth app gives quarters. |
+| `STACK` | Rows top to bottom, each row a list of apps left to right. Rows split evenly by count, so a fourth row gives quarters, and a row of two gives halves. Listing the same app twice gives it two windows. |
 | `FULLSCREEN_APP` | App that gets the other display in native fullscreen. |
 | `STACK_ON` | `"secondary"` or `"primary"`. Which display holds the stack. Flip this if the stack lands on the wrong panel. |
 
@@ -64,6 +66,10 @@ Specific cases it handles:
   finishing its launch, so each placement is verified and retried with a pause between tries.
 - A closed app is launched and then waited on until it actually has a window, up to 20s. The
   wait costs nothing when the app is already open.
+- An app listed in more than one slot gets a separate window per slot. Windows placed earlier in
+  the pass are marked claimed so they are never reused, and when every window an app has is
+  already claimed, a fresh one is opened through File > New Window and waited on. An app with no
+  such menu item is named in the `Skipped:` alert instead of stealing a placed window.
 - **Any** app in native fullscreen is taken out of it first, not just Ghostty. A fullscreen
   window refuses to be resized, so without this the app was silently skipped. The exit
   animation is waited out before placement, because `setFrame` during it does not stick.
@@ -99,3 +105,7 @@ Driven on a two by 1440x2560 portrait setup:
 - An unlisted focused app (Delivery) parked over the stack: left where it was, dropped below
   all three stack windows in z-order.
 - Editing this file auto-reloads, confirmed by watching a global marker get cleared.
+- Chrome listed in three slots with only one window open: two extra windows opened and each slot
+  filled. Frames read back as 1692,30 1692x993 across the top, then 1692,1023 846x992 and
+  2538,1023 846x992 sharing the middle, then 1692,2015 846x993 and 2538,2015 846x993 sharing the
+  bottom: exact halves, no gap, no overlap.
