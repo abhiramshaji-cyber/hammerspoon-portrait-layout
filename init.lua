@@ -1,7 +1,11 @@
 -- Vertical app stack on one portrait display + Ghostty filling the other, on one hotkey.
 
 local HOTKEY = { { "ctrl", "option", "cmd" }, "l" } -- option is the same modifier Hammerspoon calls "alt"
-local STACK = { "Google Chrome", "Spotify", "Slack" } -- top to bottom
+local STACK = {
+  { "Google Chrome" },
+  { "Google Chrome", "Spotify" },
+  { "Slack", "Google Chrome" },
+}
 local FULLSCREEN_APP = "Ghostty"
 local STACK_ON = "secondary" -- "primary" is the menu-bar display, which here is Ghostty's
 
@@ -28,12 +32,18 @@ local function targetScreens()
 end
 
 -- Integer boundaries shared between adjacent slots: exact coverage, no 1px gap or overlap.
-local function slice(f, n)
+local function slice(f, n, axis)
   local rects = {}
   for i = 0, n - 1 do
-    local top = math.floor(f.y + f.h * i / n + 0.5)
-    local bottom = math.floor(f.y + f.h * (i + 1) / n + 0.5)
-    rects[i + 1] = hs.geometry.rect(f.x, top, f.w, bottom - top)
+    if axis == "h" then
+      local left = math.floor(f.x + f.w * i / n + 0.5)
+      local right = math.floor(f.x + f.w * (i + 1) / n + 0.5)
+      rects[i + 1] = hs.geometry.rect(left, f.y, right - left, f.h)
+    else
+      local top = math.floor(f.y + f.h * i / n + 0.5)
+      local bottom = math.floor(f.y + f.h * (i + 1) / n + 0.5)
+      rects[i + 1] = hs.geometry.rect(f.x, top, f.w, bottom - top)
+    end
   end
   return rects
 end
@@ -68,7 +78,7 @@ local function waitFor(predicate, timeout)
 end
 
 -- Only standard windows: a launching app can briefly expose a splash or panel as its main window.
-local function windowFor(appName)
+local function windowFor(appName, claimed)
   local app = hs.application.get(appName)
   if not app then
     return nil
@@ -77,10 +87,10 @@ local function windowFor(appName)
     app:unhide() -- a hidden app's windows still resize, but invisibly
   end
   local win = app:mainWindow()
-  if not (win and win:isStandard()) then
+  if not (win and win:isStandard() and not claimed[win:id()]) then
     win = nil
     for _, w in ipairs(app:allWindows()) do
-      if w:isStandard() then
+      if w:isStandard() and not claimed[w:id()] then
         win = w
         break
       end
@@ -92,17 +102,25 @@ local function windowFor(appName)
   return win
 end
 
--- Launches the app when it is closed, and waits for a real window either way.
-local function acquireWindow(appName)
-  local win = windowFor(appName)
+-- Launches the app when it is closed, opens an extra window when every window it has is already
+-- placed, and waits for a real window either way.
+local function acquireWindow(appName, claimed)
+  local win = windowFor(appName, claimed)
   if win then
     return win
   end
-  if not hs.application.launchOrFocus(appName) then
+
+  local app = hs.application.get(appName)
+  if app and #app:allWindows() > 0 then
+    if not app:selectMenuItem({ "File", "New Window" }) then
+      return nil, appName .. " (needs another window, no File > New Window)"
+    end
+  elseif not hs.application.launchOrFocus(appName) then
     return nil, appName .. " (not found)"
   end
+
   win = waitFor(function()
-    return windowFor(appName)
+    return windowFor(appName, claimed)
   end, LAUNCH_TIMEOUT)
   if not win then
     return nil, appName .. " (no window after launch)"
@@ -149,8 +167,8 @@ end
 
 -- Places the app in rect, taking it out of fullscreen and launching it first if needed.
 -- Returns the window, or nil plus a reason for the "Skipped" alert.
-local function placeApp(appName, rect)
-  local win, err = acquireWindow(appName)
+local function placeApp(appName, rect, claimed)
+  local win, err = acquireWindow(appName, claimed)
   if not win then
     return nil, err
   end
@@ -170,9 +188,11 @@ local function isLayoutApp(name)
   if name == FULLSCREEN_APP then
     return true
   end
-  for _, n in ipairs(STACK) do
-    if n == name then
-      return true
+  for _, row in ipairs(STACK) do
+    for _, n in ipairs(row) do
+      if n == name then
+        return true
+      end
     end
   end
   return false
@@ -180,16 +200,21 @@ end
 
 local function layoutPass()
   local stackScreen, otherScreen = targetScreens()
-  local slots = slice(stackScreen:frame(), #STACK)
+  local rows = slice(stackScreen:frame(), #STACK)
   local skipped = {}
+  local claimed = {}
 
   local firstPlaced
-  for i, name in ipairs(STACK) do
-    local win, err = placeApp(name, slots[i])
-    if win then
-      firstPlaced = firstPlaced or win
-    else
-      table.insert(skipped, err)
+  for i, row in ipairs(STACK) do
+    local cells = slice(rows[i], #row, "h")
+    for j, name in ipairs(row) do
+      local win, err = placeApp(name, cells[j], claimed)
+      if win then
+        claimed[win:id()] = true
+        firstPlaced = firstPlaced or win
+      else
+        table.insert(skipped, err)
+      end
     end
   end
 
@@ -198,7 +223,7 @@ local function layoutPass()
   if not otherScreen then
     table.insert(skipped, FULLSCREEN_APP .. " (needs a 2nd display)")
   else
-    local _, err = placeApp(FULLSCREEN_APP, otherScreen:frame())
+    local _, err = placeApp(FULLSCREEN_APP, otherScreen:frame(), claimed)
     if err then
       table.insert(skipped, err)
     end
