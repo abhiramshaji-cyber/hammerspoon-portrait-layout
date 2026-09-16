@@ -1,4 +1,4 @@
--- Vertical app stack on one portrait display + Ghostty filling the other, on one hotkey.
+-- Vertical app stack on one portrait display + Ghostty filling the other, or a left/right split of the focused display.
 
 local HOTKEY = { { "ctrl", "option", "cmd" }, "l" } -- option is the same modifier Hammerspoon calls "alt"
 local STACK = {
@@ -8,6 +8,9 @@ local STACK = {
 }
 local FULLSCREEN_APP = "Ghostty"
 local STACK_ON = "secondary" -- "primary" is the menu-bar display, which here is Ghostty's
+
+local SPLIT_HOTKEY = { { "ctrl", "option", "cmd" }, "k" }
+local SPLIT = { "Ghostty", "Google Chrome" } -- left to right on the focused screen
 
 local LAUNCH_TIMEOUT = 20 -- a cold start can be slow, and waiting costs nothing when it is not
 local UNFULLSCREEN_TIMEOUT = 5
@@ -184,18 +187,28 @@ local function placeApp(appName, rect, claimed)
   return win
 end
 
-local function isLayoutApp(name)
-  if name == FULLSCREEN_APP then
-    return true
+-- macOS keeps the focused app's windows above raised ones, so an unlisted app would stay on top.
+-- Launching an app also steals focus, so this runs after the placements rather than before.
+local function focusIfBackground(win, names)
+  if not win then
+    return
   end
-  for _, row in ipairs(STACK) do
-    for _, n in ipairs(row) do
-      if n == name then
-        return true
-      end
+  local front = hs.application.frontmostApplication()
+  local frontName = front and front:name()
+  for _, name in ipairs(names) do
+    if name == frontName then
+      return
     end
   end
-  return false
+  win:focus()
+end
+
+local function report(skipped)
+  if #skipped > 0 then
+    hs.alert.show("Skipped: " .. table.concat(skipped, ", "))
+  else
+    hs.alert.show("Layout set")
+  end
 end
 
 local function layoutPass()
@@ -203,11 +216,13 @@ local function layoutPass()
   local rows = slice(stackScreen:frame(), #STACK)
   local skipped = {}
   local claimed = {}
+  local names = { FULLSCREEN_APP }
 
   local firstPlaced
   for i, row in ipairs(STACK) do
     local cells = slice(rows[i], #row, "h")
     for j, name in ipairs(row) do
+      table.insert(names, name)
       local win, err = placeApp(name, cells[j], claimed)
       if win then
         claimed[win:id()] = true
@@ -229,25 +244,35 @@ local function layoutPass()
     end
   end
 
-  -- macOS keeps the focused app's windows above raised ones, so an unlisted app would stay on top.
-  -- Launching an app also steals focus, so re-check here rather than before the placements.
-  local front = hs.application.frontmostApplication()
-  if firstPlaced and not (front and isLayoutApp(front:name())) then
-    firstPlaced:focus()
+  focusIfBackground(firstPlaced, names)
+  report(skipped)
+end
+
+local function splitPass()
+  local cells = slice(hs.screen.mainScreen():frame(), #SPLIT, "h")
+  local skipped = {}
+  local claimed = {}
+
+  local firstPlaced
+  for i, name in ipairs(SPLIT) do
+    local win, err = placeApp(name, cells[i], claimed)
+    if win then
+      claimed[win:id()] = true
+      firstPlaced = firstPlaced or win
+    else
+      table.insert(skipped, err)
+    end
   end
 
-  if #skipped > 0 then
-    hs.alert.show("Skipped: " .. table.concat(skipped, ", "))
-  else
-    hs.alert.show("Layout set")
-  end
+  focusIfBackground(firstPlaced, SPLIT)
+  report(skipped)
 end
 
 -- One pass at a time: a pass can now stay alive for seconds waiting on a launch, and two of them
 -- interleaving would fight over the same slots.
 local inProgress = false
 
-local function applyLayout()
+local function run(pass)
   if not hs.accessibilityState() then
     hs.alert.show("Grant Hammerspoon Accessibility access, then press the hotkey again")
     return
@@ -259,8 +284,8 @@ local function applyLayout()
 
   local co = coroutine.create(function()
     -- xpcall so the guard is released even when a pass throws; it is yieldable, so the sleeps
-    -- inside layoutPass still work through it.
-    local ok, err = xpcall(layoutPass, debug.traceback)
+    -- inside the pass still work through it.
+    local ok, err = xpcall(pass, debug.traceback)
     inProgress = false
     if not ok then
       hs.showError(err)
@@ -273,7 +298,13 @@ local function applyLayout()
   end
 end
 
-hs.hotkey.bind(HOTKEY[1], HOTKEY[2], applyLayout)
+hs.hotkey.bind(HOTKEY[1], HOTKEY[2], function()
+  run(layoutPass)
+end)
+
+hs.hotkey.bind(SPLIT_HOTKEY[1], SPLIT_HOTKEY[2], function()
+  run(splitPass)
+end)
 
 -- Global on purpose: an unretained pathwatcher is garbage collected and silently stops watching.
 configWatcher = hs.pathwatcher.new(hs.configdir, function(files)
