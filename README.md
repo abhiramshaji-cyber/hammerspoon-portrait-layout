@@ -4,7 +4,7 @@ One hotkey restores a two-monitor portrait layout:
 
 - Secondary portrait display: three equal rows. A row holding several apps splits into equal
   columns, so the default is Chrome across the top, Architect across the middle, and Slack and
-  Spotify sharing the bottom.
+  ChatGPT sharing the bottom.
 - Primary (menu bar) display: Ghostty filling the whole screen.
 
 Any app that is closed gets launched, and any app sitting in native fullscreen gets pulled

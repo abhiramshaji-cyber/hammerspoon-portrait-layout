@@ -4,7 +4,7 @@ local HOTKEY = { { "ctrl", "option", "cmd" }, "l" } -- option is the same modifi
 local STACK = {
   { "Google Chrome" },
   { "Architect" },
-  { "Slack", "Spotify" },
+  { "Slack", "ChatGPT" },
 }
 local FULLSCREEN_APP = "Ghostty"
 local STACK_ON = "secondary" -- "primary" is the menu-bar display, which here is Ghostty's
